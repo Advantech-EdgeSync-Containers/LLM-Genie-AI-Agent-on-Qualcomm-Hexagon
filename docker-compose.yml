@@ -1,0 +1,92 @@
+version: "3.9"
+
+services:
+  genie-llm-agent-service:
+    image: harbor.edgesync.cloud/nagarro-container-images/llm-genie-ai-agent-on-qualcomm-hexagon:v1
+    container_name: llm-genie-ai-agent-on-qualcomm-hexagon
+    stdin_open: true
+    tty: true
+    restart: always
+    network_mode: host
+    privileged: true
+    env_file: ./.env
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        chmod -R +x /workspace/qnn/bin/aarch64-oe-linux-gcc11.2 || true
+        exec bash
+    labels:
+      maintainer: "Samir Singh <samir.singh@advantech.com>"
+      vendor: "Advantech"
+      version: "1.2"
+      description: "QCS6490 LLM Edge AI Development Container (Meta Llama 3.2 1B)"
+    volumes:
+      - /dev/socket/weston:/dev/socket/weston
+      - /opt/qti/development:/opt/qti/development
+      - ./model:/workspace/model/
+      - ./.env:/workspace/.env
+      - ./wise-bench.sh:/workspace/wise-bench.sh
+      - ./start_services.sh:/workspace/start_services.sh
+      - ./langchain-agent:/workspace/langchain-agent
+
+      # QNN tools
+      - /etc/xdg/weston:/etc/xdg/weston
+      - /usr/share/X11:/usr/share/X11
+      - /dev:/dev
+      - /qnn/bin/aarch64-oe-linux-gcc11.2/snpe-throughput-net-run:/usr/bin/snpe-throughput-net-run
+      - /qnn/bin/aarch64-oe-linux-gcc11.2/snpe-platform-validator:/usr/bin/snpe-platform-validator
+      - /qnn/bin/aarch64-oe-linux-gcc11.2/snpe-parallel-run:/usr/bin/snpe-parallel-run
+      - /qnn/bin/aarch64-oe-linux-gcc11.2/snpe-net-run:/usr/bin/snpe-net-run
+      - /qnn/bin/aarch64-oe-linux-gcc11.2/snpe-diagview:/usr/bin/snpe-diagview
+      - /qnn/bin/aarch64-oe-linux-gcc11.2/qnn-net-run:/usr/bin/qnn-net-run
+      - /qnn/bin/aarch64-oe-linux-gcc11.2/qnn-platform-validator:/usr/bin/qnn-platform-validator
+
+      # SUSI & Advantech Bind Mounts
+      - /etc/board:/etc/board:ro
+      - /lib/libSUSI-4.00.so:/lib/libSUSI-4.00.so:ro
+      - /lib/libSUSI-4.00.so.1:/lib/libSUSI-4.00.so.1:ro
+      - /lib/libSUSI-4.00.so.1.0.0:/lib/libSUSI-4.00.so.1.0.0:ro
+      - /lib/libSusiIoT.so:/lib/libSusiIoT.so:ro
+      - /lib/libSusiIoT.so.1.0.0:/lib/libSusiIoT.so.1.0.0:ro
+      - /usr/lib/Advantech/:/usr/lib/Advantech/:ro
+      - /lib/libjansson.so.4:/lib/libjansson.so.4:ro
+      - /lib/libjansson.so:/lib/libjansson.so:ro
+      - /lib/libjansson.so.4.11.0:/lib/libjansson.so.4.11.0:ro
+
+    working_dir: /workspace
+    devices:
+      - /dev/fastrpc-cdsp-secure
+      - /dev/fastrpc-adsp-secure
+      - /dev/kgsl-3d0:/dev/kgsl-3d0
+      - /dev/dma_heap/system:/dev/dma_heap/system
+      - /dev/dma_heap/qcom,system:/dev/dma_heap/qcom,system
+      - /dev/dri/card0:/dev/dri/card0
+      - /dev/dri/renderD128:/dev/dri/renderD128
+      - /dev/fastrpc-cdsp:/dev/fastrpc-cdsp
+      - /dev/video32:/dev/video32
+      - /dev/video33:/dev/video33
+    environment:
+      LD_LIBRARY_PATH: "/workspace/qnn/lib/aarch64-oe-linux-gcc11.2:/workspace/lib"
+      ADSP_LIBRARY_PATH: "/workspace/qnn/lib/hexagon-v68/unsigned"
+      PATH: "/workspace/qnn/bin/aarch64-oe-linux-gcc11.2:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+  openweb-ui-service:
+    container_name: openweb-ui-service
+    image: ghcr.io/open-webui/open-webui:v0.6.5
+    network_mode: host
+    env_file: ./.env
+    environment:
+      OPENAI_API_BASE_URL: ${OPENAI_API_GENIE_BASE}
+      PORT: ${OPENWEBUI_PORT}
+      OPENAI_API_TAG: ${OPENAI_API_TAG}
+      ENABLE_TAGS_GENERATION: ${ENABLE_TAGS_GENERATION}
+      ENABLE_TITLE_GENERATION: ${ENABLE_TITLE_GENERATION}
+    volumes:
+      - openwebui-data:/app/backend/data
+    depends_on:
+      - genie-llm-agent-service
+    restart: always
+
+volumes:
+  openwebui-data:
+    driver: local

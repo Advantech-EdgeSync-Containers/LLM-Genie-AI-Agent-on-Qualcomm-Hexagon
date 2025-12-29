@@ -1,0 +1,10 @@
+# Ignore Python cache directories everywhere in the project
+**/__pycache__/
+
+# Ignore log and PID files
+*.log
+*.pid
+
+# (Optional) If you want to be more specific:
+# uvicorn.log
+# uvicorn.pid
